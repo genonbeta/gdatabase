@@ -1,1 +1,1 @@
-include ':app', ':gdatabase'
+include ':gdatabase'

@@ -29,19 +29,20 @@ android {
 }
 
 ext {
-    bintrayRepo = 'maven'
+    bintrayRepo = 'androidsdk'
     bintrayName = 'genonbeta-database'
 
     publishedGroupId = 'com.genonbeta.android'
     libraryName = 'Genonbeta Android Database'
-    artifact = 'database'
+    artifact = 'gdatabase'
 
-    libraryDescription = 'Database management tool.'
+    libraryDescription = 'To handle Android databases more efficently'
 
     siteUrl = 'https://github.com/genonbeta/GDatabase'
     gitUrl = 'https://github.com/genonbeta/GDatabase.git'
 
     libraryVersion = rootProject.versionName
+    publishVersion = rootProject.versionName
 
     developerId = 'genonbeta'
     developerName = 'Genonbeta'
@@ -52,7 +53,15 @@ ext {
     allLicenses = ["GPL-2.0"]
 }
 
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'com.android.support.test:runner:1.0.2'
+    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+}
+
 group = publishedGroupId
+version = rootProject.versionName
 
 install {
     repositories.mavenInstaller {
@@ -130,6 +139,7 @@ bintray {
     pkg {
         repo = bintrayRepo
         name = bintrayName
+        userOrg = properties.getProperty("bintray.organization")
         desc = libraryDescription
         websiteUrl = siteUrl
         vcsUrl = gitUrl
@@ -137,7 +147,9 @@ bintray {
         publish = true
         publicDownloadNumbers = true
         version {
-            desc = libraryDescription
+            name = rootProject.versionName
+            released = new Date()
+            vcsTag = rootProject.versionName
             gpg {
                 sign = true //Determines whether to GPG sign the files. The default is false
                 passphrase = properties.getProperty("bintray.gpg.password")
