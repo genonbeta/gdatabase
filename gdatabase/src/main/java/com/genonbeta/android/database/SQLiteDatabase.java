@@ -5,7 +5,6 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.database.sqlite.SQLiteStatement;
-import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -170,79 +169,82 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
 
         openDatabase.beginTransaction();
 
-        if (tables.size() > 0) {
-            for (String tableName : tables.keySet()) {
-                List<String> baseKeys = new ArrayList<>();
-                List<DatabaseObject> databaseObjects = tables.get(tableName);
-                StringBuilder valueTemplate = new StringBuilder();
-                int indexPosition = 0;
+        try {
+            if (tables.size() > 0) {
+                for (String tableName : tables.keySet()) {
+                    List<String> baseKeys = new ArrayList<>();
+                    List<DatabaseObject> databaseObjects = tables.get(tableName);
+                    StringBuilder valueTemplate = new StringBuilder();
+                    int indexPosition = 0;
 
-                if (databaseObjects != null) {
-                    for (DatabaseObject thisObject : databaseObjects) {
-                        ContentValues contentValues = thisObject.getValues();
+                    if (databaseObjects != null) {
+                        for (DatabaseObject thisObject : databaseObjects) {
+                            ContentValues contentValues = thisObject.getValues();
 
-                        {
-                            // these are not related to individual processes
-                            if (baseKeys.size() == 0)
-                                baseKeys.addAll(contentValues.keySet());
+                            {
+                                // these are not related to individual processes
+                                if (baseKeys.size() == 0)
+                                    baseKeys.addAll(contentValues.keySet());
 
-                            if (valueTemplate.length() == 0) {
-                                valueTemplate.append("(");
+                                if (valueTemplate.length() == 0) {
+                                    valueTemplate.append("(");
 
-                                for (int columnIterator = 0; columnIterator < baseKeys.size(); columnIterator++) {
-                                    if (columnIterator > 0)
-                                        valueTemplate.append(",");
+                                    for (int columnIterator = 0; columnIterator < baseKeys.size(); columnIterator++) {
+                                        if (columnIterator > 0)
+                                            valueTemplate.append(",");
 
-                                    valueTemplate.append("?");
+                                        valueTemplate.append("?");
+                                    }
+
+                                    valueTemplate.append(")");
+                                }
+                            }
+
+                            StringBuilder sqlQuery = new StringBuilder();
+                            StringBuilder columnIndex = new StringBuilder();
+
+                            sqlQuery.append(String.format("INSERT INTO `%s` (", tableName));
+
+                            for (String columnName : baseKeys) {
+                                if (columnIndex.length() > 0)
+                                    columnIndex.append(",");
+
+                                columnIndex.append(String.format("`%s`", columnName));
+                            }
+
+                            sqlQuery.append(columnIndex);
+                            sqlQuery.append(") VALUES ");
+                            sqlQuery.append(valueTemplate);
+                            sqlQuery.append(";");
+
+                            if (updater == null || updater.onProgressState()) {
+                                SQLiteStatement statement = openDatabase.compileStatement(sqlQuery.toString());
+
+                                int iterator = 0;
+                                for (String baseKey : baseKeys) {
+                                    bindContentValue(statement, ++iterator, contentValues.get(baseKey));
                                 }
 
-                                valueTemplate.append(")");
-                            }
+                                statement.execute();
+                                statement.close();
+                            } else
+                                break;
+
+                            if (updater != null)
+                                updater.onProgressChange(objects.size(), indexPosition++);
+
+                            thisObject.onCreateObject(this);
                         }
-
-                        StringBuilder sqlQuery = new StringBuilder();
-                        StringBuilder columnIndex = new StringBuilder();
-
-                        sqlQuery.append(String.format("INSERT INTO `%s` (", tableName));
-
-                        for (String columnName : baseKeys) {
-                            if (columnIndex.length() > 0)
-                                columnIndex.append(",");
-
-                            columnIndex.append(String.format("`%s`", columnName));
-                        }
-
-                        sqlQuery.append(columnIndex);
-                        sqlQuery.append(") VALUES ");
-                        sqlQuery.append(valueTemplate);
-                        sqlQuery.append(";");
-
-                        if (updater == null || updater.onProgressState()) {
-                            SQLiteStatement statement = openDatabase.compileStatement(sqlQuery.toString());
-
-                            Log.d(SQLiteDatabase.class.getSimpleName(), "SQL Query: " + sqlQuery.toString());
-
-                            int iterator = 0;
-                            for (String baseKey : baseKeys) {
-                                bindContentValue(statement, ++iterator, contentValues.get(baseKey));
-                            }
-
-                            statement.execute();
-                            statement.close();
-                        } else
-                            break;
-
-                        if (updater != null)
-                            updater.onProgressChange(objects.size(), indexPosition++);
-
-                        thisObject.onCreateObject(this);
                     }
                 }
             }
-        }
 
-        openDatabase.setTransactionSuccessful();
-        openDatabase.endTransaction();
+            openDatabase.setTransactionSuccessful();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            openDatabase.endTransaction();
+        }
     }
 
     public void publish(DatabaseObject object)
@@ -286,10 +288,6 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
                             if (updater != null)
                                 updater.onProgressChange(objectList.size(), existenceIterator++);
                         }
-
-                        Log.d(SQLiteDatabase.class.getSimpleName(), String.format("Items updated: %d, Items inserted: %d",
-                                updatingObjects.size(),
-                                insertingObjects.size()));
 
                         insert(insertingObjects, updater);
                         update(updatingObjects, updater);
@@ -344,11 +342,30 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
 
     public void remove(List<? extends DatabaseObject> objects, ProgressUpdater updater)
     {
-        Map<String, List<DatabaseObject>> tables = explodePerTable(objects);
+        int progress = 0;
         android.database.sqlite.SQLiteDatabase openDatabase = getWritableDatabase();
 
         openDatabase.beginTransaction();
 
+        try {
+            for (DatabaseObject object : objects) {
+                if (updater != null && !updater.onProgressState())
+                    break;
+
+                SQLQuery.Select select = object.getWhere();
+                openDatabase.delete(select.tableName, select.where, select.whereArgs);
+
+                if (updater != null)
+                    updater.onProgressChange(objects.size(), progress++);
+            }
+
+            openDatabase.setTransactionSuccessful();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            openDatabase.endTransaction();
+        }
+        /*
         if (tables.size() > 0) {
             for (String tableName : tables.keySet()) {
                 List<DatabaseObject> databaseObjects = tables.get(tableName);
@@ -380,10 +397,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
                     }
                 }
             }
-        }
-
-        openDatabase.setTransactionSuccessful();
-        openDatabase.endTransaction();
+        }*/
     }
 
     public void setMaxHeapSize(int maxHeapSize)
@@ -405,25 +419,28 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
     public void update(List<? extends DatabaseObject> objects, ProgressUpdater updater)
     {
         int progress = 0;
-
         android.database.sqlite.SQLiteDatabase openDatabase = getWritableDatabase();
+
         openDatabase.beginTransaction();
 
-        for (DatabaseObject object : objects) {
-            if (updater != null && !updater.onProgressState())
-                break;
+        try {
+            for (DatabaseObject object : objects) {
+                if (updater != null && !updater.onProgressState())
+                    break;
 
-            SQLQuery.Select select = object.getWhere();
-            openDatabase.update(select.tableName, object.getValues(), select.where, select.whereArgs);
-            progress++;
+                SQLQuery.Select select = object.getWhere();
+                openDatabase.update(select.tableName, object.getValues(), select.where, select.whereArgs);
 
-            if (updater != null)
-                updater.onProgressChange(objects.size(), progress);
+                if (updater != null)
+                    updater.onProgressChange(objects.size(), progress++);
+            }
 
+            openDatabase.setTransactionSuccessful();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            openDatabase.endTransaction();
         }
-
-        openDatabase.setTransactionSuccessful();
-        openDatabase.endTransaction();
     }
 
     public int update(SQLQuery.Select select, ContentValues values)
