@@ -47,7 +47,12 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
 
     public <T extends DatabaseObject> ArrayList<T> castQuery(SQLQuery.Select select, final Class<T> clazz)
     {
-        return castQuery(getReadableDatabase(), select, clazz, null);
+        return castQuery(select, clazz, null);
+    }
+
+    public <T extends DatabaseObject> ArrayList<T> castQuery(SQLQuery.Select select, final Class<T> clazz, CastQueryListener<T> listener)
+    {
+        return castQuery(getReadableDatabase(), select, clazz, listener);
     }
 
     public <T extends DatabaseObject> ArrayList<T> castQuery(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select, final Class<T> clazz, CastQueryListener<T> listener)
@@ -260,6 +265,10 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         }
     }
 
+    public void publish(DatabaseObject object) {
+        publish(getWritableDatabase(), object);
+    }
+
     public void publish(android.database.sqlite.SQLiteDatabase database, DatabaseObject object)
     {
         if (getFirstFromTable(object.getWhere()) != null)
@@ -321,7 +330,8 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return false;
     }
 
-    public void reconstruct(DatabaseObject object) throws Exception {
+    public void reconstruct(DatabaseObject object) throws Exception
+    {
         reconstruct(getReadableDatabase(), object);
     }
 
