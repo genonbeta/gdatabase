@@ -84,33 +84,33 @@ public class SQLValues
 			return mNullable;
 		}
 
-		public Column setExtra(String mExtra)
+		public Column setExtra(String extra)
 		{
-			this.mExtra = mExtra;
+			mExtra = extra;
 			return this;
 		}
 
-		public Column setName(String mName)
+		public Column setName(String name)
 		{
-			this.mName = mName;
+			mName = name;
 			return this;
 		}
 
-		public Column setNullable(boolean mNullable)
+		public Column setNullable(boolean nullable)
 		{
-			this.mNullable = mNullable;
+			mNullable = nullable;
 			return this;
 		}
 
-		public Column setType(SQLType mType)
+		public Column setType(SQLType type)
 		{
-			this.mType = mType;
+			mType = type;
 			return this;
 		}
 
-		public void setValue(String mValue)
+		public void setValue(String value)
 		{
-			this.mValue = mValue;
+			mValue = value;
 		}
 
 		@Override
