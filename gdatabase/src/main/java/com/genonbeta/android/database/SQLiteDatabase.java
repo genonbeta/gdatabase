@@ -75,11 +75,6 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return returnedList;
     }
 
-    public int delete(SQLQuery.Select select)
-    {
-        return getWritableDatabase().delete(select.tableName, select.where, select.whereArgs);
-    }
-
     public Map<String, List<DatabaseObject>> explodePerTable(List<? extends DatabaseObject> objects)
     {
         Map<String, List<DatabaseObject>> tables = new HashMap<>();
@@ -104,7 +99,8 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return mContext;
     }
 
-    public CursorItem getFirstFromTable(SQLQuery.Select select) {
+    public CursorItem getFirstFromTable(SQLQuery.Select select)
+    {
         return getFirstFromTable(getReadableDatabase(), select);
     }
 
@@ -114,7 +110,8 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return list.size() > 0 ? list.get(0) : null;
     }
 
-    public ArrayList<CursorItem> getTable(SQLQuery.Select select) {
+    public ArrayList<CursorItem> getTable(SQLQuery.Select select)
+    {
         return getTable(getReadableDatabase(), select);
     }
 
@@ -153,21 +150,30 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return list;
     }
 
-
     public long insert(DatabaseObject object)
     {
-        object.onCreateObject(this);
-        return insert(object.getWhere().tableName, null, object.getValues());
+        return insert(getWritableDatabase(), object);
     }
 
-    public long insert(String tableName, String nullColumnHack, ContentValues contentValues)
+    public long insert(android.database.sqlite.SQLiteDatabase db, DatabaseObject object)
     {
-        return getWritableDatabase().insert(tableName, nullColumnHack, contentValues);
+        object.onCreateObject(this);
+        return insert(db, object.getWhere().tableName, null, object.getValues());
+    }
+
+    public long insert(android.database.sqlite.SQLiteDatabase db, String tableName, String nullColumnHack, ContentValues contentValues)
+    {
+        return db.insert(tableName, nullColumnHack, contentValues);
     }
 
     public void insert(List<? extends DatabaseObject> objects)
     {
-        insert(getWritableDatabase(), objects, null);
+        insert(objects, null);
+    }
+
+    public void insert(List<? extends DatabaseObject> objects, ProgressUpdater updater)
+    {
+        insert(getWritableDatabase(), objects, updater);
     }
 
     public void insert(android.database.sqlite.SQLiteDatabase openDatabase, List<? extends DatabaseObject> objects, ProgressUpdater updater)
@@ -254,17 +260,22 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         }
     }
 
-    public void publish(DatabaseObject object)
+    public void publish(android.database.sqlite.SQLiteDatabase database, DatabaseObject object)
     {
         if (getFirstFromTable(object.getWhere()) != null)
-            update(object);
+            update(database, object);
         else
-            insert(object);
+            insert(database, object);
     }
 
     public <T extends DatabaseObject> boolean publish(Class<T> clazz, List<T> objects)
     {
-        return publish(getWritableDatabase(), clazz, objects, null);
+        return publish(clazz, objects, null);
+    }
+
+    public <T extends DatabaseObject> boolean publish(Class<T> clazz, List<T> objects, ProgressUpdater updater)
+    {
+        return publish(getWritableDatabase(), clazz, objects, updater);
     }
 
     public <T extends DatabaseObject> boolean publish(android.database.sqlite.SQLiteDatabase openDatabase, Class<T> clazz, List<T> objects, ProgressUpdater updater)
@@ -310,9 +321,13 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return false;
     }
 
-    public void reconstruct(DatabaseObject object) throws Exception
+    public void reconstruct(DatabaseObject object) throws Exception {
+        reconstruct(getReadableDatabase(), object);
+    }
+
+    public void reconstruct(android.database.sqlite.SQLiteDatabase db, DatabaseObject object) throws Exception
     {
-        CursorItem item = getFirstFromTable(object.getWhere());
+        CursorItem item = getFirstFromTable(db, object.getWhere());
 
         if (item == null) {
             SQLQuery.Select select = object.getWhere();
@@ -339,12 +354,33 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
     public void remove(DatabaseObject object)
     {
         object.onRemoveObject(this);
-        delete(object.getWhere());
+        remove(getWritableDatabase(), object.getWhere());
+    }
+
+    public void remove(android.database.sqlite.SQLiteDatabase db, DatabaseObject object)
+    {
+        object.onRemoveObject(this);
+        remove(db, object.getWhere());
+    }
+
+    public int remove(SQLQuery.Select select)
+    {
+        return remove(getWritableDatabase(), select);
+    }
+
+    public int remove(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select)
+    {
+        return db.delete(select.tableName, select.where, select.whereArgs);
     }
 
     public void remove(List<? extends DatabaseObject> objects)
     {
-        remove(getWritableDatabase(), objects, null);
+        remove(objects, null);
+    }
+
+    public void remove(List<? extends DatabaseObject> objects, ProgressUpdater updater)
+    {
+        remove(getWritableDatabase(), objects, updater);
     }
 
     public void remove(android.database.sqlite.SQLiteDatabase openDatabase, List<? extends DatabaseObject> objects, ProgressUpdater updater)
@@ -371,55 +407,37 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         } finally {
             openDatabase.endTransaction();
         }
-        /*
-        if (tables.size() > 0) {
-            for (String tableName : tables.keySet()) {
-                List<DatabaseObject> databaseObjects = tables.get(tableName);
-
-                if (databaseObjects != null) {
-                    int indexPosition = 0;
-
-                    for (DatabaseObject thisObject : databaseObjects) {
-                        SQLQuery.Select select = thisObject.getWhere();
-                        StringBuilder sqlQuery = new StringBuilder();
-
-                        sqlQuery.append(String.format("DELETE FROM %s WHERE %s", tableName, select.where));
-
-                        if (updater == null || updater.onProgressState()) {
-                            SQLiteStatement statement = openDatabase.compileStatement(sqlQuery.toString());
-
-                            for (int iterator = 0; iterator < select.whereArgs.length; iterator++)
-                                statement.bindString(iterator + 1, select.whereArgs[iterator]);
-
-                            statement.execute();
-                            statement.close();
-                        } else
-                            break;
-
-                        if (updater != null)
-                            updater.onProgressChange(objects.size(), indexPosition++);
-
-                        thisObject.onRemoveObject(this);
-                    }
-                }
-            }
-        }*/
-    }
-
-    public void setMaxHeapSize(int maxHeapSize)
-    {
-        mMaxHeapSize = maxHeapSize;
     }
 
     public int update(DatabaseObject object)
     {
+        return update(getWritableDatabase(), object);
+    }
+
+    public int update(android.database.sqlite.SQLiteDatabase db, DatabaseObject object)
+    {
         object.onUpdateObject(this);
-        return update(object.getWhere(), object.getValues());
+        return update(db, object.getWhere(), object.getValues());
+    }
+
+    public int update(SQLQuery.Select select, ContentValues values)
+    {
+        return update(getWritableDatabase(), select, values);
+    }
+
+    public int update(android.database.sqlite.SQLiteDatabase database, SQLQuery.Select select, ContentValues values)
+    {
+        return database.update(select.tableName, values, select.where, select.whereArgs);
     }
 
     public void update(List<? extends DatabaseObject> objects)
     {
-        update(getWritableDatabase(), objects, null);
+        update(objects, null);
+    }
+
+    public void update(List<? extends DatabaseObject> objects, ProgressUpdater updater)
+    {
+        update(getWritableDatabase(), objects, updater);
     }
 
     public void update(android.database.sqlite.SQLiteDatabase openDatabase, List<? extends DatabaseObject> objects, ProgressUpdater updater)
@@ -446,11 +464,6 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         } finally {
             openDatabase.endTransaction();
         }
-    }
-
-    public int update(SQLQuery.Select select, ContentValues values)
-    {
-        return getWritableDatabase().update(select.tableName, values, select.where, select.whereArgs);
     }
 
     public interface CastQueryListener<T extends DatabaseObject>
