@@ -344,13 +344,12 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
 
     public void remove(List<? extends DatabaseObject> objects)
     {
-        remove(objects, null);
+        remove(getWritableDatabase(), objects, null);
     }
 
-    public void remove(List<? extends DatabaseObject> objects, ProgressUpdater updater)
+    public void remove(android.database.sqlite.SQLiteDatabase openDatabase, List<? extends DatabaseObject> objects, ProgressUpdater updater)
     {
         int progress = 0;
-        android.database.sqlite.SQLiteDatabase openDatabase = getWritableDatabase();
 
         openDatabase.beginTransaction();
 
