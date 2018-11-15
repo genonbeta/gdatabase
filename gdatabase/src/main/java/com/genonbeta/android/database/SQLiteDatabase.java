@@ -6,6 +6,8 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.database.sqlite.SQLiteStatement;
 
+import com.genonbeta.android.database.exception.ReconstructionFailedException;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,7 +21,6 @@ import java.util.Map;
 abstract public class SQLiteDatabase extends SQLiteOpenHelper
 {
     private Context mContext;
-    private int mMaxHeapSize = 250;
 
     public SQLiteDatabase(Context context, String name, android.database.sqlite.SQLiteDatabase.CursorFactory factory, int version)
     {
@@ -330,12 +331,12 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return false;
     }
 
-    public void reconstruct(DatabaseObject object) throws Exception
+    public void reconstruct(DatabaseObject object) throws ReconstructionFailedException
     {
         reconstruct(getReadableDatabase(), object);
     }
 
-    public void reconstruct(android.database.sqlite.SQLiteDatabase db, DatabaseObject object) throws Exception
+    public void reconstruct(android.database.sqlite.SQLiteDatabase db, DatabaseObject object) throws ReconstructionFailedException
     {
         CursorItem item = getFirstFromTable(db, object.getWhere());
 
@@ -352,7 +353,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
                 whereArgs.append(arg);
             }
 
-            throw new Exception("No data was returned from: query"
+            throw new ReconstructionFailedException("No data was returned from: query"
                     + "; tableName: " + select.tableName
                     + "; where: " + select.where
                     + "; whereArgs: " + whereArgs.toString());
