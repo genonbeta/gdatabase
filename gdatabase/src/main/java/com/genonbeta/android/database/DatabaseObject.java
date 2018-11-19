@@ -12,7 +12,7 @@ import com.genonbeta.android.database.SQLQuery;
  * date: 2.11.2017 21:31
  */
 
-public interface DatabaseObject
+public interface DatabaseObject<T extends Object>
 {
 	SQLQuery.Select getWhere();
 
@@ -20,9 +20,9 @@ public interface DatabaseObject
 
 	void reconstruct(CursorItem item);
 
-	void onCreateObject(SQLiteDatabase database);
+	void onCreateObject(android.database.sqlite.SQLiteDatabase db, SQLiteDatabase database, T parent);
 
-	void onUpdateObject(SQLiteDatabase database);
+	void onUpdateObject(android.database.sqlite.SQLiteDatabase db, SQLiteDatabase database, T parent);
 
-	void onRemoveObject(SQLiteDatabase database);
+	void onRemoveObject(android.database.sqlite.SQLiteDatabase db, SQLiteDatabase database, T parent);
 }
