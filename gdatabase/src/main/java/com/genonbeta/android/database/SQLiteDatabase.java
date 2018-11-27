@@ -408,8 +408,6 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
                 openDatabase.delete(select.tableName, select.where, select.whereArgs);
                 object.onRemoveObject(openDatabase, this, parent);
 
-                remove(openDatabase, object, parent);
-
                 if (updater != null)
                     updater.onProgressChange(objects.size(), progress++);
             }
