@@ -185,6 +185,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
     public <T, V extends DatabaseObject<T>> void insert(android.database.sqlite.SQLiteDatabase openDatabase, List<V> objects, ProgressUpdater updater, T parent)
     {
         Map<String, List<V>> tables = explodePerTable(objects);
+        boolean successful = false;
 
         openDatabase.beginTransaction();
 
@@ -251,18 +252,21 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
 
                             if (updater != null)
                                 updater.onProgressChange(objects.size(), indexPosition++);
-
-                            thisObject.onCreateObject(openDatabase, this, parent);
                         }
                     }
                 }
             }
 
             openDatabase.setTransactionSuccessful();
+            successful = true;
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
             openDatabase.endTransaction();
+
+            if (successful)
+                for (V object : objects)
+                    object.onCreateObject(openDatabase, this, parent);
         }
     }
 
@@ -395,6 +399,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
     public <T, V extends DatabaseObject<T>> void remove(android.database.sqlite.SQLiteDatabase openDatabase, List<V> objects, ProgressUpdater updater, T parent)
     {
         int progress = 0;
+        boolean successful = false;
 
         openDatabase.beginTransaction();
 
@@ -406,17 +411,21 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
                 // remove(DatabaseObject) might be overloaded, manually complete
                 SQLQuery.Select select = object.getWhere();
                 openDatabase.delete(select.tableName, select.where, select.whereArgs);
-                object.onRemoveObject(openDatabase, this, parent);
 
                 if (updater != null)
                     updater.onProgressChange(objects.size(), progress++);
             }
 
             openDatabase.setTransactionSuccessful();
+            successful = true;
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
             openDatabase.endTransaction();
+
+            if (successful)
+                for (V object : objects)
+                    object.onRemoveObject(openDatabase, this, parent);
         }
     }
 
@@ -454,6 +463,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
     public <T, V extends DatabaseObject<T>> void update(android.database.sqlite.SQLiteDatabase openDatabase, List<V> objects, ProgressUpdater updater, T parent)
     {
         int progress = 0;
+        boolean successful = false;
 
         openDatabase.beginTransaction();
 
@@ -465,17 +475,21 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
                 // update(DatabaseObject) might be overloaded, manually complete
                 SQLQuery.Select select = object.getWhere();
                 openDatabase.update(select.tableName, object.getValues(), select.where, select.whereArgs);
-                object.onUpdateObject(openDatabase, this, parent);
 
                 if (updater != null)
                     updater.onProgressChange(objects.size(), progress++);
             }
 
             openDatabase.setTransactionSuccessful();
+            successful = true;
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
             openDatabase.endTransaction();
+
+            if (successful)
+                for (V object : objects)
+                    object.onUpdateObject(openDatabase, this, parent);
         }
     }
 
