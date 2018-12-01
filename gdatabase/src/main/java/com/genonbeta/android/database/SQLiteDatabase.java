@@ -429,6 +429,20 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         }
     }
 
+    public <V, T extends DatabaseObject<V>> void removeAsObject(android.database.sqlite.SQLiteDatabase database,
+                                                                SQLQuery.Select select,
+                                                                Class<T> objectType,
+                                                                CastQueryListener<T> listener,
+                                                                V parent)
+    {
+        ArrayList<T> transferList = castQuery(database, select, objectType, listener);
+
+        remove(database, select);
+
+        for (T object : transferList)
+            object.onRemoveObject(database, this, parent);
+    }
+
     public int update(DatabaseObject object)
     {
         return update(getWritableDatabase(), object, null);
