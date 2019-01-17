@@ -46,20 +46,20 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
                     : String.valueOf(bindingObject));
     }
 
-    public <T extends DatabaseObject> ArrayList<T> castQuery(SQLQuery.Select select, final Class<T> clazz)
+    public <T extends DatabaseObject> List<T> castQuery(SQLQuery.Select select, final Class<T> clazz)
     {
         return castQuery(select, clazz, null);
     }
 
-    public <T extends DatabaseObject> ArrayList<T> castQuery(SQLQuery.Select select, final Class<T> clazz, CastQueryListener<T> listener)
+    public <T extends DatabaseObject> List<T> castQuery(SQLQuery.Select select, final Class<T> clazz, CastQueryListener<T> listener)
     {
         return castQuery(getReadableDatabase(), select, clazz, listener);
     }
 
-    public <T extends DatabaseObject> ArrayList<T> castQuery(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select, final Class<T> clazz, CastQueryListener<T> listener)
+    public <T extends DatabaseObject> List<T> castQuery(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select, final Class<T> clazz, CastQueryListener<T> listener)
     {
-        ArrayList<T> returnedList = new ArrayList<>();
-        ArrayList<CursorItem> itemList = getTable(db, select);
+        List<T> returnedList = new ArrayList<>();
+        List<CursorItem> itemList = getTable(db, select);
 
         try {
             for (CursorItem item : itemList) {
@@ -112,18 +112,18 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
 
     public CursorItem getFirstFromTable(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select)
     {
-        ArrayList<CursorItem> list = getTable(db, select.setLimit(1));
+        List<CursorItem> list = getTable(db, select.setLimit(1));
         return list.size() > 0 ? list.get(0) : null;
     }
 
-    public ArrayList<CursorItem> getTable(SQLQuery.Select select)
+    public List<CursorItem> getTable(SQLQuery.Select select)
     {
         return getTable(getReadableDatabase(), select);
     }
 
-    public ArrayList<CursorItem> getTable(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select)
+    public List<CursorItem> getTable(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select)
     {
-        ArrayList<CursorItem> list = new ArrayList<>();
+        List<CursorItem> list = new ArrayList<>();
 
         Cursor cursor = db.query(select.tableName,
                 select.columns,
@@ -435,7 +435,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
                                                                 CastQueryListener<T> listener,
                                                                 V parent)
     {
-        ArrayList<T> transferList = castQuery(database, select, objectType, listener);
+        List<T> transferList = castQuery(database, select, objectType, listener);
 
         remove(database, select);
 
