@@ -1,6 +1,7 @@
 package com.genonbeta.android.database;
 
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * created by: Veli
@@ -9,7 +10,7 @@ import java.util.HashMap;
 
 public class SQLValues
 {
-	private HashMap<String, Table> mIndex = new HashMap<>();
+	private final HashMap<String, Table> mIndex = new HashMap<>();
 
 	public Table defineTable(String name)
 	{
@@ -25,6 +26,12 @@ public class SQLValues
 		getTables().put(name, table);
 
 		return table;
+	}
+
+	public Table getTable(String tableName) {
+		synchronized (mIndex) {
+			return mIndex.get(tableName);
+		}
 	}
 
 	public HashMap<String, Table> getTables()
@@ -123,7 +130,7 @@ public class SQLValues
 	public static class Table
 	{
 		private String mName;
-		private HashMap<String, Column> mColumns = new HashMap<>();
+		private final Map<String, Column> mColumns = new HashMap<>();
 		private boolean mMayExist;
 
 		public Table(String name)
@@ -152,7 +159,7 @@ public class SQLValues
 			return getColumns().get(name);
 		}
 
-		public HashMap<String, Column> getColumns()
+		public Map<String, Column> getColumns()
 		{
 			return mColumns;
 		}
