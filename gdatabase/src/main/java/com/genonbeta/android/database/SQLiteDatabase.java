@@ -59,10 +59,10 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
     public <T extends DatabaseObject> List<T> castQuery(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select, final Class<T> clazz, CastQueryListener<T> listener)
     {
         List<T> returnedList = new ArrayList<>();
-        List<CursorItem> itemList = getTable(db, select);
+        List<ContentValues> itemList = getTable(db, select);
 
         try {
-            for (CursorItem item : itemList) {
+            for (ContentValues item : itemList) {
                 T newClazz = clazz.newInstance();
 
                 newClazz.reconstruct(item);
@@ -105,25 +105,25 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return mContext;
     }
 
-    public CursorItem getFirstFromTable(SQLQuery.Select select)
+    public ContentValues getFirstFromTable(SQLQuery.Select select)
     {
         return getFirstFromTable(getReadableDatabase(), select);
     }
 
-    public CursorItem getFirstFromTable(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select)
+    public ContentValues getFirstFromTable(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select)
     {
-        List<CursorItem> list = getTable(db, select.setLimit(1));
+        List<ContentValues> list = getTable(db, select.setLimit(1));
         return list.size() > 0 ? list.get(0) : null;
     }
 
-    public List<CursorItem> getTable(SQLQuery.Select select)
+    public List<ContentValues> getTable(SQLQuery.Select select)
     {
         return getTable(getReadableDatabase(), select);
     }
 
-    public List<CursorItem> getTable(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select)
+    public List<ContentValues> getTable(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select)
     {
-        List<CursorItem> list = new ArrayList<>();
+        List<ContentValues> list = new ArrayList<>();
 
         Cursor cursor = db.query(select.tableName,
                 select.columns,
@@ -139,7 +139,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
                 select.loadListener.onOpen(this, cursor);
 
             do {
-                CursorItem item = new CursorItem();
+                ContentValues item = new ContentValues();
 
                 for (int i = 0; i < cursor.getColumnCount(); i++)
                     item.put(cursor.getColumnName(i), cursor.getString(i));
@@ -341,7 +341,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
 
     public void reconstruct(android.database.sqlite.SQLiteDatabase db, DatabaseObject object) throws ReconstructionFailedException
     {
-        CursorItem item = getFirstFromTable(db, object.getWhere());
+        ContentValues item = getFirstFromTable(db, object.getWhere());
 
         if (item == null) {
             SQLQuery.Select select = object.getWhere();
@@ -509,7 +509,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
 
     public interface CastQueryListener<T extends DatabaseObject>
     {
-        void onObjectReconstructed(SQLiteDatabase db, CursorItem item, T object);
+        void onObjectReconstructed(SQLiteDatabase db, ContentValues item, T object);
     }
 
     public interface ProgressUpdater

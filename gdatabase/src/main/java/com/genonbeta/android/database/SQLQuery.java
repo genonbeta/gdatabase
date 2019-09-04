@@ -1,5 +1,6 @@
 package com.genonbeta.android.database;
 
+import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
@@ -50,7 +51,7 @@ public class SQLQuery
 
 	public static class Select
 	{
-		private CursorItem mItems = new CursorItem();
+		private ContentValues mItems = new ContentValues();
 
 		public String tag;
 		public String tableName;
@@ -69,7 +70,7 @@ public class SQLQuery
 			this.columns = columns;
 		}
 
-		public CursorItem getItems()
+		public ContentValues getItems()
 		{
 			return mItems;
 		}
@@ -126,7 +127,7 @@ public class SQLQuery
 		public static interface LoadListener
 		{
 			public void onOpen(com.genonbeta.android.database.SQLiteDatabase db, Cursor cursor);
-			public void onLoad(com.genonbeta.android.database.SQLiteDatabase db, Cursor cursor, CursorItem item);
+			public void onLoad(com.genonbeta.android.database.SQLiteDatabase db, Cursor cursor, ContentValues item);
 		}
 	}
 }
