@@ -4,8 +4,6 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
-import java.util.ArrayList;
-
 /**
  * Created by: veli
  * Date: 12/1/16 2:41 PM
@@ -126,8 +124,8 @@ public class SQLQuery
 
 		public static interface LoadListener
 		{
-			public void onOpen(com.genonbeta.android.database.SQLiteDatabase db, Cursor cursor);
-			public void onLoad(com.genonbeta.android.database.SQLiteDatabase db, Cursor cursor, ContentValues item);
+			public void onOpen(KuickDb db, Cursor cursor);
+			public void onLoad(KuickDb db, Cursor cursor, ContentValues item);
 		}
 	}
 }

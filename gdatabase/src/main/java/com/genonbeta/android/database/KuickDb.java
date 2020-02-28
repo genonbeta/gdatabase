@@ -5,27 +5,24 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.database.SQLException;
+import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.database.sqlite.SQLiteStatement;
 import android.util.Log;
 import com.genonbeta.android.database.exception.ReconstructionFailedException;
 
 import java.io.Serializable;
-import java.lang.annotation.Inherited;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Created by: veli
  * Date: 1/31/17 4:51 PM
  */
 
-abstract public class SQLiteDatabase extends SQLiteOpenHelper
+abstract public class KuickDb extends SQLiteOpenHelper
 {
-
-    public static final String TAG = SQLiteDatabase.class.getSimpleName(),
+    public static final String TAG = KuickDb.class.getSimpleName(),
             ACTION_DATABASE_CHANGE = "com.genonbeta.database.intent.action.DATABASE_CHANGE",
             EXTRA_BROADCAST_DATA = "extraBroadcastData",
             TYPE_REMOVE = "typeRemove",
@@ -35,8 +32,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
     private final List<BroadcastData> mBroadcastOverhead = new ArrayList<>();
     private Context mContext;
 
-    public SQLiteDatabase(Context context, String name, android.database.sqlite.SQLiteDatabase.CursorFactory factory,
-                          int version)
+    public KuickDb(Context context, String name, SQLiteDatabase.CursorFactory factory, int version)
     {
         super(context, name, factory, version);
         mContext = context;
@@ -59,28 +55,27 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
                     ? (String) bindingObject : String.valueOf(bindingObject));
     }
 
-    public <T extends DatabaseObject> List<T> castQuery(SQLQuery.Select select, final Class<T> clazz)
+    public <T, V extends DatabaseObject<T>> List<V> castQuery(SQLQuery.Select select, final Class<V> clazz)
     {
         return castQuery(select, clazz, null);
     }
 
-    public <T extends DatabaseObject> List<T> castQuery(SQLQuery.Select select, final Class<T> clazz,
-                                                        CastQueryListener<T> listener)
+    public <T, V extends DatabaseObject<T>> List<V> castQuery(SQLQuery.Select select, final Class<V> clazz,
+                                                              CastQueryListener<V> listener)
     {
         return castQuery(getReadableDatabase(), select, clazz, listener);
     }
 
-    public <T extends DatabaseObject> List<T> castQuery(android.database.sqlite.SQLiteDatabase db,
-                                                        SQLQuery.Select select, final Class<T> clazz,
-                                                        CastQueryListener<T> listener)
+    public <T, V extends DatabaseObject<T>> List<V> castQuery(SQLiteDatabase db,
+                                                              SQLQuery.Select select, final Class<V> clazz,
+                                                              CastQueryListener<V> listener)
     {
-        List<T> returnedList = new ArrayList<>();
+        List<V> returnedList = new ArrayList<>();
         List<ContentValues> itemList = getTable(db, select);
 
         try {
             for (ContentValues item : itemList) {
-                T newClazz = clazz.newInstance();
-
+                V newClazz = clazz.newInstance();
                 newClazz.reconstruct(item);
 
                 if (listener != null)
@@ -97,13 +92,13 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return returnedList;
     }
 
-    public synchronized void append(android.database.sqlite.SQLiteDatabase dbInstance, String tableName,
+    public synchronized void append(SQLiteDatabase dbInstance, String tableName,
                                     String changeType)
     {
         append(dbInstance, tableName, changeType, getAffectedRowCount(dbInstance));
     }
 
-    public synchronized void append(android.database.sqlite.SQLiteDatabase dbInstance, String tableName,
+    public synchronized void append(SQLiteDatabase dbInstance, String tableName,
                                     String changeType, long affectedRows)
     {
         // If no row were affected, we shouldn't add changelog.
@@ -153,7 +148,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         }
     }
 
-    public long getAffectedRowCount(android.database.sqlite.SQLiteDatabase database)
+    public long getAffectedRowCount(SQLiteDatabase database)
     {
         Cursor cursor = null;
         long returnCount = 0;
@@ -172,25 +167,6 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return returnCount;
     }
 
-    public <T, V extends DatabaseObject<T>> Map<String, List<V>> explodePerTable(List<V> objects)
-    {
-        Map<String, List<V>> tables = new HashMap<>();
-
-        for (V object : objects) {
-            String tableName = object.getWhere().tableName;
-            List<V> availTable = tables.get(tableName);
-
-            if (availTable == null) {
-                availTable = new ArrayList<>();
-                tables.put(tableName, availTable);
-            }
-
-            availTable.add(object);
-        }
-
-        return tables;
-    }
-
     public Context getContext()
     {
         return mContext;
@@ -201,7 +177,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return getFirstFromTable(getReadableDatabase(), select);
     }
 
-    public ContentValues getFirstFromTable(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select)
+    public ContentValues getFirstFromTable(SQLiteDatabase db, SQLQuery.Select select)
     {
         List<ContentValues> list = getTable(db, select.setLimit(1));
         return list.size() > 0 ? list.get(0) : null;
@@ -212,7 +188,7 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return getTable(getReadableDatabase(), select);
     }
 
-    public List<ContentValues> getTable(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select)
+    public List<ContentValues> getTable(SQLiteDatabase db, SQLQuery.Select select)
     {
         List<ContentValues> list = new ArrayList<>();
         Cursor cursor = db.query(select.tableName, select.columns, select.where, select.whereArgs, select.groupBy,
@@ -222,11 +198,36 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
             if (select.loadListener != null)
                 select.loadListener.onOpen(this, cursor);
 
+            int columnCount = cursor.getColumnCount();
+            String[] columns = new String[columnCount];
+            int[] types = new int[columnCount];
+
+            for (int i = 0; i < columnCount; i++) {
+                columns[i] = cursor.getColumnName(i);
+                types[i] = cursor.getType(i);
+            }
+
             do {
                 ContentValues item = new ContentValues();
 
-                for (int i = 0; i < cursor.getColumnCount(); i++)
-                    item.put(cursor.getColumnName(i), cursor.getString(i));
+                for (int i = 0; i < columnCount; i++) {
+                    String columnName = columns[i];
+                    switch (types[i]) {
+                        case Cursor.FIELD_TYPE_INTEGER:
+                            item.put(columnName, cursor.getLong(i));
+                            break;
+                        case Cursor.FIELD_TYPE_STRING:
+                        case Cursor.FIELD_TYPE_NULL:
+                            item.put(columnName, cursor.getString(i));
+                            break;
+                        case Cursor.FIELD_TYPE_FLOAT:
+                            item.put(columnName, cursor.getFloat(i));
+                            break;
+                        case Cursor.FIELD_TYPE_BLOB:
+                            item.put(columnName, cursor.getBlob(i));
+                            break;
+                    }
+                }
 
                 if (select.loadListener != null)
                     select.loadListener.onLoad(this, cursor, item);
@@ -240,18 +241,18 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return list;
     }
 
-    public long insert(DatabaseObject object)
+    public <T, V extends DatabaseObject<T>> long insert(V object)
     {
         return insert(getWritableDatabase(), object, null);
     }
 
-    public <T> long insert(android.database.sqlite.SQLiteDatabase db, DatabaseObject<T> object, T parent)
+    public <T, V extends DatabaseObject<T>> long insert(SQLiteDatabase db, V object, T parent)
     {
         object.onCreateObject(db, this, parent);
         return insert(db, object.getWhere().tableName, null, object.getValues());
     }
 
-    public long insert(android.database.sqlite.SQLiteDatabase db, String tableName, String nullColumnHack,
+    public long insert(SQLiteDatabase db, String tableName, String nullColumnHack,
                        ContentValues contentValues)
     {
         long insertedId = db.insert(tableName, nullColumnHack, contentValues);
@@ -259,18 +260,18 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return insertedId;
     }
 
-    public <T extends DatabaseObject> boolean insert(List<T> objects)
+    public <T, V extends DatabaseObject<T>> boolean insert(List<V> objects)
     {
         return insert(objects, null);
     }
 
-    public <T extends DatabaseObject> boolean insert(List<T> objects, ProgressUpdater updater)
+    public <T, V extends DatabaseObject<T>> boolean insert(List<V> objects, ProgressUpdater updater)
     {
         return insert(getWritableDatabase(), objects, updater, null);
     }
 
-    public <T, V extends DatabaseObject<T>> boolean insert(android.database.sqlite.SQLiteDatabase openDatabase,
-                                                           List<V> objects, ProgressUpdater updater, T parent)
+    public <T, V extends DatabaseObject<T>> boolean insert(SQLiteDatabase openDatabase, List<V> objects,
+                                                           ProgressUpdater updater, T parent)
     {
         int progress = 0;
         openDatabase.beginTransaction();
@@ -295,12 +296,12 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return false;
     }
 
-    public int publish(DatabaseObject object)
+    public <T, V extends DatabaseObject<T>> int publish(V object)
     {
         return publish(getWritableDatabase(), object, null);
     }
 
-    public <T> int publish(android.database.sqlite.SQLiteDatabase database, DatabaseObject<T> object, T parent)
+    public <T, V extends DatabaseObject<T>> int publish(SQLiteDatabase database, V object, T parent)
     {
         int rowsChanged = update(database, object, parent);
 
@@ -310,26 +311,26 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return rowsChanged;
     }
 
-    public <T extends DatabaseObject> boolean publish(List<T> objects)
+    public <T, V extends DatabaseObject<T>> boolean publish(List<V> objects)
     {
         return publish(objects, null);
     }
 
-    public <T extends DatabaseObject> boolean publish(List<T> objects, ProgressUpdater updater)
+    public <T, V extends DatabaseObject<T>> boolean publish(List<V> objects, ProgressUpdater updater)
     {
         return publish(getWritableDatabase(), objects, updater, null);
     }
 
-    public <T, V extends DatabaseObject<T>> boolean publish(android.database.sqlite.SQLiteDatabase openDatabase,
-                                                            List<V> objects, ProgressUpdater updater, T parent)
+    public <T, V extends DatabaseObject<T>> boolean publish(SQLiteDatabase openDatabase, List<V> objectList,
+                                                            ProgressUpdater updater, T parent)
     {
         int progress = 0;
         openDatabase.beginTransaction();
 
         try {
-            for (V object : objects) {
+            for (V object : objectList) {
                 if (updater != null)
-                    if (!updater.onProgressChange(objects.size(), progress++))
+                    if (!updater.onProgressChange(objectList.size(), progress++))
                         break;
 
                 publish(openDatabase, object, parent);
@@ -346,12 +347,12 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return false;
     }
 
-    public void reconstruct(DatabaseObject object) throws ReconstructionFailedException
+    public <T, V extends DatabaseObject<T>> void reconstruct(V object) throws ReconstructionFailedException
     {
         reconstruct(getReadableDatabase(), object);
     }
 
-    public void reconstruct(android.database.sqlite.SQLiteDatabase db, DatabaseObject object)
+    public <T, V extends DatabaseObject<T>> void reconstruct(SQLiteDatabase db, V object)
             throws ReconstructionFailedException
     {
         ContentValues item = getFirstFromTable(db, object.getWhere());
@@ -375,12 +376,12 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         object.reconstruct(item);
     }
 
-    public void remove(DatabaseObject object)
+    public <T, V extends DatabaseObject<T>> void remove(V object)
     {
         remove(getWritableDatabase(), object, null);
     }
 
-    public <T> void remove(android.database.sqlite.SQLiteDatabase db, DatabaseObject<T> object, T parent)
+    public <T, V extends DatabaseObject<T>> void remove(SQLiteDatabase db, V object, T parent)
     {
         object.onRemoveObject(db, this, parent);
         remove(db, object.getWhere());
@@ -391,25 +392,25 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return remove(getWritableDatabase(), select);
     }
 
-    public int remove(android.database.sqlite.SQLiteDatabase db, SQLQuery.Select select)
+    public int remove(SQLiteDatabase db, SQLQuery.Select select)
     {
         int affectedRows = db.delete(select.tableName, select.where, select.whereArgs);
         append(db, select.tableName, TYPE_REMOVE, affectedRows);
         return affectedRows;
     }
 
-    public <T extends DatabaseObject> boolean remove(List<T> objects)
+    public <T, V extends DatabaseObject<T>> boolean remove(List<V> objects)
     {
         return remove(objects, null);
     }
 
-    public <T extends DatabaseObject> boolean remove(List<T> objects, ProgressUpdater updater)
+    public <T, V extends DatabaseObject<T>> boolean remove(List<V> objects, ProgressUpdater updater)
     {
         return remove(getWritableDatabase(), objects, updater, null);
     }
 
-    public <T, V extends DatabaseObject<T>> boolean remove(android.database.sqlite.SQLiteDatabase openDatabase,
-                                                        List<V> objects, ProgressUpdater updater, T parent)
+    public <T, V extends DatabaseObject<T>> boolean remove(SQLiteDatabase openDatabase, List<V> objects,
+                                                           ProgressUpdater updater, T parent)
     {
         int progress = 0;
         openDatabase.beginTransaction();
@@ -434,18 +435,17 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return false;
     }
 
-    public <V, T extends DatabaseObject<V>> boolean removeAsObject(android.database.sqlite.SQLiteDatabase openDatabase,
-                                                                SQLQuery.Select select, Class<T> objectType,
-                                                                CastQueryListener<T> listener, ProgressUpdater updater,
-                                                                V parent)
+    public <T, V extends DatabaseObject<T>> boolean removeAsObject(SQLiteDatabase openDatabase, SQLQuery.Select select,
+                                                                   Class<V> objectType, CastQueryListener<V> listener,
+                                                                   ProgressUpdater updater, T parent)
     {
         int progress = 0;
         openDatabase.beginTransaction();
 
         try {
-            List<T> objects = castQuery(openDatabase, select, objectType, listener);
+            List<V> objects = castQuery(openDatabase, select, objectType, listener);
 
-            for (T object : objects) {
+            for (V object : objects) {
                 if (updater != null)
                     if (!updater.onProgressChange(objects.size(), progress++))
                         break;
@@ -464,12 +464,12 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return false;
     }
 
-    public int update(DatabaseObject object)
+    public <T, V extends DatabaseObject<T>> int update(V object)
     {
         return update(getWritableDatabase(), object, null);
     }
 
-    public <T> int update(android.database.sqlite.SQLiteDatabase db, DatabaseObject<T> object, T parent)
+    public <T, V extends DatabaseObject<T>> int update(SQLiteDatabase db, V object, T parent)
     {
         object.onUpdateObject(db, this, parent);
         return update(db, object.getWhere(), object.getValues());
@@ -480,25 +480,25 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return update(getWritableDatabase(), select, values);
     }
 
-    public int update(android.database.sqlite.SQLiteDatabase database, SQLQuery.Select select, ContentValues values)
+    public int update(SQLiteDatabase database, SQLQuery.Select select, ContentValues values)
     {
         int rowsAffected = database.update(select.tableName, values, select.where, select.whereArgs);
         append(database, select.tableName, TYPE_UPDATE, rowsAffected);
         return rowsAffected;
     }
 
-    public <T extends DatabaseObject> boolean update(List<T> objects)
+    public <T, V extends DatabaseObject<T>> boolean update(List<V> objects)
     {
         return update(objects, null);
     }
 
-    public <T extends DatabaseObject> boolean update(List<T> objects, ProgressUpdater updater)
+    public <T, V extends DatabaseObject<T>> boolean update(List<V> objects, ProgressUpdater updater)
     {
         return update(getWritableDatabase(), objects, updater, null);
     }
 
-    public <T, V extends DatabaseObject<T>> boolean update(android.database.sqlite.SQLiteDatabase openDatabase,
-                                                        List<V> objects, ProgressUpdater updater, T parent)
+    public <T, V extends DatabaseObject<T>> boolean update(SQLiteDatabase openDatabase,
+                                                           List<V> objects, ProgressUpdater updater, T parent)
     {
         int progress = 0;
         openDatabase.beginTransaction();
@@ -523,9 +523,9 @@ abstract public class SQLiteDatabase extends SQLiteOpenHelper
         return false;
     }
 
-    public interface CastQueryListener<T extends DatabaseObject>
+    public interface CastQueryListener<T extends DatabaseObject<?>>
     {
-        void onObjectReconstructed(SQLiteDatabase db, ContentValues item, T object);
+        void onObjectReconstructed(KuickDb manager, ContentValues item, T object);
     }
 
     public interface ProgressUpdater
