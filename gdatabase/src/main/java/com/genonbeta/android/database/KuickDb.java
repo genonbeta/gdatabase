@@ -66,9 +66,8 @@ abstract public class KuickDb extends SQLiteOpenHelper
         return castQuery(getReadableDatabase(), select, clazz, listener);
     }
 
-    public <T, V extends DatabaseObject<T>> List<V> castQuery(SQLiteDatabase db,
-                                                              SQLQuery.Select select, final Class<V> clazz,
-                                                              CastQueryListener<V> listener)
+    public <T, V extends DatabaseObject<T>> List<V> castQuery(SQLiteDatabase db, SQLQuery.Select select,
+                                                              final Class<V> clazz, CastQueryListener<V> listener)
     {
         List<V> returnedList = new ArrayList<>();
         List<ContentValues> itemList = getTable(db, select);
@@ -92,14 +91,12 @@ abstract public class KuickDb extends SQLiteOpenHelper
         return returnedList;
     }
 
-    public synchronized void append(SQLiteDatabase dbInstance, String tableName,
-                                    String changeType)
+    public synchronized void append(SQLiteDatabase db, String tableName, String changeType)
     {
-        append(dbInstance, tableName, changeType, getAffectedRowCount(dbInstance));
+        append(db, tableName, changeType, getAffectedRowCount(db));
     }
 
-    public synchronized void append(SQLiteDatabase dbInstance, String tableName,
-                                    String changeType, long affectedRows)
+    public synchronized void append(SQLiteDatabase db, String tableName, String changeType, long affectedRows)
     {
         // If no row were affected, we shouldn't add changelog.
         if (affectedRows <= 0) {
@@ -243,17 +240,17 @@ abstract public class KuickDb extends SQLiteOpenHelper
 
     public <T, V extends DatabaseObject<T>> long insert(V object)
     {
-        return insert(getWritableDatabase(), object, null);
+        return insert(getWritableDatabase(), object, null, null);
     }
 
-    public <T, V extends DatabaseObject<T>> long insert(SQLiteDatabase db, V object, T parent)
+    public <T, V extends DatabaseObject<T>> long insert(SQLiteDatabase db, V object, T parent,
+                                                        Progress.Listener listener)
     {
-        object.onCreateObject(db, this, parent);
+        object.onCreateObject(db, this, parent, listener);
         return insert(db, object.getWhere().tableName, null, object.getValues());
     }
 
-    public long insert(SQLiteDatabase db, String tableName, String nullColumnHack,
-                       ContentValues contentValues)
+    public long insert(SQLiteDatabase db, String tableName, String nullColumnHack, ContentValues contentValues)
     {
         long insertedId = db.insert(tableName, nullColumnHack, contentValues);
         append(db, tableName, TYPE_INSERT, insertedId > -1 ? 1 : 0);
@@ -262,35 +259,30 @@ abstract public class KuickDb extends SQLiteOpenHelper
 
     public <T, V extends DatabaseObject<T>> boolean insert(List<V> objects)
     {
-        return insert(objects, null);
+        return insert(getWritableDatabase(), objects, null, null);
     }
 
-    public <T, V extends DatabaseObject<T>> boolean insert(List<V> objects, ProgressUpdater updater)
+    public <T, V extends DatabaseObject<T>> boolean insert(SQLiteDatabase db, List<V> objects, T parent,
+                                                           Progress.Listener listener)
     {
-        return insert(getWritableDatabase(), objects, updater, null);
-    }
-
-    public <T, V extends DatabaseObject<T>> boolean insert(SQLiteDatabase openDatabase, List<V> objects,
-                                                           ProgressUpdater updater, T parent)
-    {
-        int progress = 0;
-        openDatabase.beginTransaction();
+        db.beginTransaction();
 
         try {
-            for (V object : objects) {
-                if (updater != null)
-                    if (!updater.onProgressChange(objects.size(), progress++))
-                        break;
+            Progress.addToTotal(listener, objects.size());
 
-                insert(openDatabase, object, parent);
+            for (V object : objects) {
+                if (!Progress.call(listener, 1))
+                    break;
+
+                insert(db, object, parent, listener);
             }
 
-            openDatabase.setTransactionSuccessful();
+            db.setTransactionSuccessful();
             return true;
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            openDatabase.endTransaction();
+            db.endTransaction();
         }
 
         return false;
@@ -298,50 +290,46 @@ abstract public class KuickDb extends SQLiteOpenHelper
 
     public <T, V extends DatabaseObject<T>> int publish(V object)
     {
-        return publish(getWritableDatabase(), object, null);
+        return publish(getWritableDatabase(), object, null, null);
     }
 
-    public <T, V extends DatabaseObject<T>> int publish(SQLiteDatabase database, V object, T parent)
+    public <T, V extends DatabaseObject<T>> int publish(SQLiteDatabase database, V object, T parent,
+                                                        Progress.Listener listener)
     {
-        int rowsChanged = update(database, object, parent);
+        int rowsChanged = update(database, object, parent, listener);
 
         if (rowsChanged <= 0)
-            rowsChanged = insert(database, object, parent) >= -1 ? 1 : 0;
+            rowsChanged = insert(database, object, parent, listener) >= -1 ? 1 : 0;
 
         return rowsChanged;
     }
 
     public <T, V extends DatabaseObject<T>> boolean publish(List<V> objects)
     {
-        return publish(objects, null);
+        return publish(getWritableDatabase(), objects, null, null);
     }
 
-    public <T, V extends DatabaseObject<T>> boolean publish(List<V> objects, ProgressUpdater updater)
+    public <T, V extends DatabaseObject<T>> boolean publish(SQLiteDatabase db, List<V> objectList, T parent,
+                                                            Progress.Listener listener)
     {
-        return publish(getWritableDatabase(), objects, updater, null);
-    }
-
-    public <T, V extends DatabaseObject<T>> boolean publish(SQLiteDatabase openDatabase, List<V> objectList,
-                                                            ProgressUpdater updater, T parent)
-    {
-        int progress = 0;
-        openDatabase.beginTransaction();
+        db.beginTransaction();
 
         try {
-            for (V object : objectList) {
-                if (updater != null)
-                    if (!updater.onProgressChange(objectList.size(), progress++))
-                        break;
+            Progress.addToTotal(listener, objectList.size());
 
-                publish(openDatabase, object, parent);
+            for (V object : objectList) {
+                if (!Progress.call(listener, 1))
+                    break;
+
+                publish(db, object, parent, listener);
             }
 
-            openDatabase.setTransactionSuccessful();
+            db.setTransactionSuccessful();
             return true;
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            openDatabase.endTransaction();
+            db.endTransaction();
         }
 
         return false;
@@ -378,12 +366,13 @@ abstract public class KuickDb extends SQLiteOpenHelper
 
     public <T, V extends DatabaseObject<T>> void remove(V object)
     {
-        remove(getWritableDatabase(), object, null);
+        remove(getWritableDatabase(), object, null, null);
     }
 
-    public <T, V extends DatabaseObject<T>> void remove(SQLiteDatabase db, V object, T parent)
+    public <T, V extends DatabaseObject<T>> void remove(SQLiteDatabase db, V object, T parent,
+                                                        Progress.Listener listener)
     {
-        object.onRemoveObject(db, this, parent);
+        object.onRemoveObject(db, this, parent, listener);
         remove(db, object.getWhere());
     }
 
@@ -401,64 +390,59 @@ abstract public class KuickDb extends SQLiteOpenHelper
 
     public <T, V extends DatabaseObject<T>> boolean remove(List<V> objects)
     {
-        return remove(objects, null);
+        return remove(getWritableDatabase(), objects, null, null);
     }
 
-    public <T, V extends DatabaseObject<T>> boolean remove(List<V> objects, ProgressUpdater updater)
+    public <T, V extends DatabaseObject<T>> boolean remove(SQLiteDatabase db, List<V> objects, T parent,
+                                                           Progress.Listener listener)
     {
-        return remove(getWritableDatabase(), objects, updater, null);
-    }
-
-    public <T, V extends DatabaseObject<T>> boolean remove(SQLiteDatabase openDatabase, List<V> objects,
-                                                           ProgressUpdater updater, T parent)
-    {
-        int progress = 0;
-        openDatabase.beginTransaction();
+        db.beginTransaction();
 
         try {
-            for (V object : objects) {
-                if (updater != null)
-                    if (!updater.onProgressChange(objects.size(), progress++))
-                        break;
+            Progress.addToTotal(listener, objects.size());
 
-                remove(openDatabase, object, parent);
+            for (V object : objects) {
+                if (!Progress.call(listener, 1))
+                    break;
+
+                remove(db, object, parent, listener);
             }
 
-            openDatabase.setTransactionSuccessful();
+            db.setTransactionSuccessful();
             return true;
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            openDatabase.endTransaction();
+            db.endTransaction();
         }
 
         return false;
     }
 
-    public <T, V extends DatabaseObject<T>> boolean removeAsObject(SQLiteDatabase openDatabase, SQLQuery.Select select,
-                                                                   Class<V> objectType, CastQueryListener<V> listener,
-                                                                   ProgressUpdater updater, T parent)
+    public <T, V extends DatabaseObject<T>> boolean removeAsObject(SQLiteDatabase db, SQLQuery.Select select,
+                                                                   Class<V> objectType, T parent,
+                                                                   Progress.Listener progressListener,
+                                                                   CastQueryListener<V> queryListener)
     {
-        int progress = 0;
-        openDatabase.beginTransaction();
+        db.beginTransaction();
 
         try {
-            List<V> objects = castQuery(openDatabase, select, objectType, listener);
+            List<V> objects = castQuery(db, select, objectType, queryListener);
+            Progress.addToTotal(progressListener, objects.size());
 
             for (V object : objects) {
-                if (updater != null)
-                    if (!updater.onProgressChange(objects.size(), progress++))
-                        break;
+                if (!Progress.call(progressListener, 1))
+                    break;
 
-                remove(openDatabase, object, parent);
+                remove(db, object, parent, progressListener);
             }
 
-            openDatabase.setTransactionSuccessful();
+            db.setTransactionSuccessful();
             return true;
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            openDatabase.endTransaction();
+            db.endTransaction();
         }
 
         return false;
@@ -466,12 +450,13 @@ abstract public class KuickDb extends SQLiteOpenHelper
 
     public <T, V extends DatabaseObject<T>> int update(V object)
     {
-        return update(getWritableDatabase(), object, null);
+        return update(getWritableDatabase(), object, null, null);
     }
 
-    public <T, V extends DatabaseObject<T>> int update(SQLiteDatabase db, V object, T parent)
+    public <T, V extends DatabaseObject<T>> int update(SQLiteDatabase db, V object, T parent,
+                                                       Progress.Listener listener)
     {
-        object.onUpdateObject(db, this, parent);
+        object.onUpdateObject(db, this, parent, listener);
         return update(db, object.getWhere(), object.getValues());
     }
 
@@ -489,35 +474,30 @@ abstract public class KuickDb extends SQLiteOpenHelper
 
     public <T, V extends DatabaseObject<T>> boolean update(List<V> objects)
     {
-        return update(objects, null);
+        return update(getWritableDatabase(), objects, null, null);
     }
 
-    public <T, V extends DatabaseObject<T>> boolean update(List<V> objects, ProgressUpdater updater)
+    public <T, V extends DatabaseObject<T>> boolean update(SQLiteDatabase db, List<V> objects, T parent,
+                                                           Progress.Listener listener)
     {
-        return update(getWritableDatabase(), objects, updater, null);
-    }
-
-    public <T, V extends DatabaseObject<T>> boolean update(SQLiteDatabase openDatabase,
-                                                           List<V> objects, ProgressUpdater updater, T parent)
-    {
-        int progress = 0;
-        openDatabase.beginTransaction();
+        db.beginTransaction();
 
         try {
-            for (V object : objects) {
-                if (updater != null)
-                    if (!updater.onProgressChange(objects.size(), progress++))
-                        break;
+            Progress.addToTotal(listener, objects.size());
 
-                update(openDatabase, object, parent);
+            for (V object : objects) {
+                if (!Progress.call(listener, 1))
+                    break;
+
+                update(db, object, parent, listener);
             }
 
-            openDatabase.setTransactionSuccessful();
+            db.setTransactionSuccessful();
             return true;
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            openDatabase.endTransaction();
+            db.endTransaction();
         }
 
         return false;
@@ -526,11 +506,6 @@ abstract public class KuickDb extends SQLiteOpenHelper
     public interface CastQueryListener<T extends DatabaseObject<?>>
     {
         void onObjectReconstructed(KuickDb manager, ContentValues item, T object);
-    }
-
-    public interface ProgressUpdater
-    {
-        boolean onProgressChange(int total, int current);
     }
 
     public static BroadcastData toData(Intent intent)

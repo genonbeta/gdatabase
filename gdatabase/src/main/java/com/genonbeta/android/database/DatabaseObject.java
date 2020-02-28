@@ -9,9 +9,9 @@ import android.database.sqlite.SQLiteDatabase;
 
 public interface DatabaseObject<T> extends BaseDatabaseObject
 {
-	void onCreateObject(SQLiteDatabase db, KuickDb kuick, T parent);
+	void onCreateObject(SQLiteDatabase db, KuickDb kuick, T parent, Progress.Listener listener);
 
-	void onUpdateObject(SQLiteDatabase db, KuickDb kuick, T parent);
+	void onUpdateObject(SQLiteDatabase db, KuickDb kuick, T parent, Progress.Listener listener);
 
-	void onRemoveObject(SQLiteDatabase db, KuickDb kuick, T parent);
+	void onRemoveObject(SQLiteDatabase db, KuickDb kuick, T parent, Progress.Listener listener);
 }
