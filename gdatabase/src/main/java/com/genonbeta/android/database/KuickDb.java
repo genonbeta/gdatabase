@@ -75,7 +75,7 @@ abstract public class KuickDb extends SQLiteOpenHelper
         try {
             for (ContentValues item : itemList) {
                 V newClazz = clazz.newInstance();
-                newClazz.reconstruct(item);
+                newClazz.reconstruct(db, this, item);
 
                 if (listener != null)
                     listener.onObjectReconstructed(this, item, newClazz);
@@ -361,7 +361,7 @@ abstract public class KuickDb extends SQLiteOpenHelper
                     + select.tableName + "; where: " + select.where + "; whereArgs: " + whereArgs.toString());
         }
 
-        object.reconstruct(item);
+        object.reconstruct(db, this, item);
     }
 
     public <T, V extends DatabaseObject<T>> void remove(V object)

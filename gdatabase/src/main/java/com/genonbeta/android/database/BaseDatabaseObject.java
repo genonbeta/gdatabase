@@ -1,6 +1,7 @@
 package com.genonbeta.android.database;
 
 import android.content.ContentValues;
+import android.database.sqlite.SQLiteDatabase;
 
 public interface BaseDatabaseObject
 {
@@ -8,5 +9,5 @@ public interface BaseDatabaseObject
 
     SQLQuery.Select getWhere();
 
-    void reconstruct(ContentValues item);
+    void reconstruct(SQLiteDatabase db, KuickDb kuick, ContentValues item);
 }
