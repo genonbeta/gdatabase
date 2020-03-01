@@ -8,8 +8,10 @@ public class Progress
     public static Progress dissect(Listener listener)
     {
         Progress progress = listener.getProgress();
-        if (progress == null)
-            listener.setProgress(new Progress());
+        if (progress == null) {
+            progress = new Progress();
+            listener.setProgress(progress);
+        }
         return progress;
     }
 
