@@ -20,7 +20,7 @@ import java.util.List;
  * Date: 1/31/17 4:51 PM
  */
 
-abstract public class KuickDb extends SQLiteOpenHelper
+public abstract class KuickDb extends SQLiteOpenHelper
 {
     public static final String TAG = KuickDb.class.getSimpleName(),
             ACTION_DATABASE_CHANGE = "com.genonbeta.database.intent.action.DATABASE_CHANGE",
@@ -30,7 +30,7 @@ abstract public class KuickDb extends SQLiteOpenHelper
             TYPE_UPDATE = "typeUpdate";
 
     private final List<BroadcastData> mBroadcastOverhead = new ArrayList<>();
-    private Context mContext;
+    private final Context mContext;
 
     public KuickDb(Context context, String name, SQLiteDatabase.CursorFactory factory, int version)
     {
